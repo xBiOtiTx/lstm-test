@@ -22,16 +22,10 @@ class Point:
 
 class Direction(Enum):
 
-    def __init__(self, x, y):
-        self.offset = np.array((x, y))
+    def __init__(self, offset):
+        self.offset = offset
 
-    def x(self):
-        return self.offset[0]
-
-    def y(self):
-        return self.offset[1]
-
-    UP = (0, 1)
-    RIGHT = (1, 0)
-    DOWN = (0, -1)
-    LEFT = (-1, 0)
+    UP = Point(0, 1)
+    RIGHT = Point(1, 0)
+    DOWN = Point(0, -1)
+    LEFT = Point(-1, 0)
