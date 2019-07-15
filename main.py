@@ -2,10 +2,11 @@ import pygame
 from pygame.locals import *
 import matplotlib.pyplot as plt
 import numpy as np
-from subprocess import Popen, PIPE
-from multiprocessing import Process, Queue, JoinableQueue
+from multiprocessing import Process, Queue
+import multiprocessing as mp
 
-from keras.utils import plot_model
+from Direction import Direction
+from Game1 import Game1
 
 TICK_RATE = 100
 
@@ -40,8 +41,12 @@ def main_game(q):
     global WIDTH
     global HEIGHT
 
+    SIZE = 3
+
     pygame.init()
     surface = pygame.display.set_mode((WIDTH, HEIGHT))
+    game = Game1(SIZE)
+    # TODO renderer = SurfaceBlockRenderer(surface, size, size)
 
     timer = pygame.time.get_ticks()
     while True:
@@ -53,25 +58,19 @@ def main_game(q):
 
         for event in pygame.event.get():
             if event.type == QUIT:
-                # plot_model(agent.model, to_file='model.png')
                 pygame.quit()
                 quit()
 
             if event.type == pygame.KEYDOWN:
+                q.put([1, 2, 3, 4, 5, 6, 7, 8, 9])
                 if event.key == pygame.K_LEFT:
-                    q.put([1, 2, 3, 4, 5, 6, 7, 8, 9])
-                    print("left")
-                    # game.move(Direction.LEFT.offset)
+                    game.move(Direction.LEFT.offset)
                 if event.key == pygame.K_UP:
-                    q.put([9, 8, 7, 6, 5, 4, 3, 2, 1])
-                    print("up")
-                    # game.rotate()
+                    game.move(Direction.UP.offset)
                 if event.key == pygame.K_RIGHT:
-                    print("right")
-                    # game.move(Direction.RIGHT.offset)
+                    game.move(Direction.RIGHT.offset)
                 if event.key == pygame.K_DOWN:
-                    print("down")
-                    # game.move(Direction.DOWN.offset)
+                    game.move(Direction.DOWN.offset)
                 if event.key == pygame.K_PLUS or event.key == pygame.K_KP_PLUS:
                     TICK_RATE -= 100
                 if event.key == pygame.K_MINUS or event.key == pygame.K_KP_MINUS:
@@ -85,6 +84,8 @@ def main_game(q):
 
 
 if __name__ == "__main__":
+    mp.set_start_method("spawn")
+
     queue = Queue()
 
     p1 = Process(target=main_game, args=[queue])
@@ -95,4 +96,3 @@ if __name__ == "__main__":
 
     p1.join()
     p2.join()
-    # main_game()
