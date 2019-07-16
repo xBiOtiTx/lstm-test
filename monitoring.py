@@ -1,5 +1,4 @@
 import matplotlib.pyplot as plt
-import numpy as np
 from multiprocessing import Queue
 
 
@@ -13,9 +12,7 @@ def main_monitor(q: Queue):
     while not handler.closed:
         while not q.empty():
             numbers = q.get()
-            x = np.random.random()
-            y = np.random.random()
-            plt.scatter(x, y)
+            plt.scatter(numbers[0], numbers[1])
         plt.pause(0.001)
 
 

@@ -15,7 +15,7 @@ class Renderer:
         self.surface = surface
 
         self.width = surface.get_width()
-        self.height = surface.get_height
+        self.height = surface.get_height()
 
         self.columns = game_size[0]
         self.lines = game_size[1]
@@ -28,13 +28,15 @@ class Renderer:
                                                (self.lines - line) * self.cell_height - self.cell_height,
                                                self.cell_width, self.cell_height))
 
-    def render(self, game_map):
+    def render(self, game):
         self.surface.fill((0, 0, 0))
 
-        columns, lines = game_map.shape
-        for column in range(columns):
-            for line in range(lines):
-                if game_map[column][line] != 0:
-                    self.set_cell(Renderer.GREEN, column, line)
+        self.set_cell(Renderer.GREEN, game.position.x, game.position.y)
+        self.set_cell(Renderer.YELLOW, game.food.x, game.food.y)
+
+        # for column in range(game.size):
+        #     for line in range(game.size):
+        #         if game_map[column][line] != 0:
+        #             self.set_cell(Renderer.GREEN, column, line)
 
         pygame.display.update()

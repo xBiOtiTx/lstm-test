@@ -3,14 +3,10 @@ import random
 
 def main_game(q):
     import pygame
+    from render import Renderer
     from pygame.constants import QUIT
     from utils import Direction
     import numpy as np
-
-    # global TICK_RATE
-    # global WIDTH
-    # global HEIGHT
-    # global SIZE
 
     TICK_RATE = 100
     WIDTH = 800
@@ -20,15 +16,12 @@ def main_game(q):
     pygame.init()
     surface = pygame.display.set_mode((WIDTH, HEIGHT))
     game = Game1(SIZE)
-    # TODO renderer = SurfaceBlockRenderer(surface, size, size)
+    renderer = Renderer(surface, (SIZE, SIZE))
+    game_counter = 0
 
     timer = pygame.time.get_ticks()
     while True:
-        # render begin
-        surface.fill((0, 0, 0))
-
-        pygame.display.update()
-        # render end
+        renderer.render(game)
 
         for event in pygame.event.get():
             if event.type == QUIT:
@@ -36,7 +29,6 @@ def main_game(q):
                 quit()
 
             if event.type == pygame.KEYDOWN:
-                q.put([1, 2, 3, 4, 5, 6, 7, 8, 9])
                 if event.key == pygame.K_LEFT:
                     game.move(Direction.LEFT.offset)
                 if event.key == pygame.K_UP:
@@ -50,6 +42,14 @@ def main_game(q):
                 if event.key == pygame.K_MINUS or event.key == pygame.K_KP_MINUS:
                     TICK_RATE += 100
 
+        if game.gameover:
+            print("GAMEOVER")
+            print("step: {}".format(game.step))
+            print("score: {}".format(game.score))
+            q.put([game_counter, game.score])
+            game_counter += 1
+            game = Game1(SIZE)
+
         # TODO -> incapsulate to TimeSomething
         current_time = pygame.time.get_ticks()
         dt = current_time - timer
@@ -61,7 +61,7 @@ class Game1:
     def __init__(self, size):
         from utils import Point
         self.size = size
-        self.all_positions = set(Point(i, j) for i in range(size) for j in range(size))
+        self.all_positions = [Point(i, j) for i in range(size) for j in range(size)]
         self.map = [[0 for i in range(size)] for j in range(size)]
         self.position = Point(size // 2, size // 2)
         self.food = self.init_food(self.position)
@@ -73,6 +73,10 @@ class Game1:
         food_test = self.all_positions.copy()
         food_test.remove(position)
         return random.choice(food_test)
+
+    # TODO
+    # def restart(self):
+    #     pass
 
     def move(self, offset):
         self.step += 1

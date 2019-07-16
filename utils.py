@@ -55,6 +55,9 @@ class Point:
         self.x = other.x
         self.y = other.y
 
+    def copy(self):
+        return Point(self.x, self.y)
+
 
 class Direction(Enum):
     def __init__(self, dx, dy):
