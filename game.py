@@ -1,12 +1,10 @@
-import random
-
-
 def main_game(q):
     import pygame
-    from render import Renderer
     from pygame.constants import QUIT
     from utils import Direction
     import numpy as np
+    from game1 import Renderer
+    from game1 import Game1
 
     TICK_RATE = 100
     WIDTH = 800
@@ -55,41 +53,3 @@ def main_game(q):
         dt = current_time - timer
         if dt >= TICK_RATE:
             timer = current_time
-
-
-class Game1:
-    def __init__(self, size):
-        from utils import Point
-        self.size = size
-        self.all_positions = [Point(i, j) for i in range(size) for j in range(size)]
-        self.map = [[0 for i in range(size)] for j in range(size)]
-        self.position = Point(size // 2, size // 2)
-        self.food = self.init_food(self.position)
-        self.score = 0
-        self.step = 0
-        self.gameover = False
-
-    def init_food(self, position):
-        food_test = self.all_positions.copy()
-        food_test.remove(position)
-        return random.choice(food_test)
-
-    # TODO
-    # def restart(self):
-    #     pass
-
-    def move(self, offset):
-        self.step += 1
-        if self.test_move(offset):
-            self.position.move(offset)
-            if self.position == self.food:
-                self.score += 1
-                self.food = self.init_food(self.position)
-        else:
-            self.gameover = True
-        return not self.gameover
-
-    def test_move(self, offset):
-        t = self.position.copy()
-        t.move(offset)
-        return 0 <= t.x < self.size and 0 <= t.y < self.size
