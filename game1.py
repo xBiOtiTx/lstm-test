@@ -1,10 +1,15 @@
 import pygame
 import random
+
+from keras.layers import LSTM, TimeDistributed
 from keras.optimizers import Adam
 from keras.models import Sequential
 from keras.layers.core import Dense, Dropout
 import random
 import numpy as np
+from keras.utils import to_categorical
+
+from utils import Direction
 
 
 class Game1:
@@ -15,9 +20,16 @@ class Game1:
         self.map = [[0 for i in range(size)] for j in range(size)]
         self.position = Point(size // 2, size // 2)
         self.food = self.init_food(self.position)
+        self.rock = None  # TODO
         self.score = 0
         self.step = 0
         self.gameover = False
+
+    def get_data(self):
+        data = [[0 for i in range(self.size)] for j in range(self.size)]
+        data[self.position.x][self.position.y] = 1
+        data[self.food.x][self.food.y] = 2
+        return np.rot90(np.array(data)).reshape((1, 1, self.size * self.size))
 
     def init_food(self, position):
         food_test = self.all_positions.copy()
@@ -88,24 +100,25 @@ class Renderer:
 
 class Agent:
 
-    def __init__(self, column, lines):
-        self.column = column
-        self.lines = lines
-        self.model = self.create_model()
-        self.action_delta = 0.1
+    def __init__(self, size):
+        self.size = size
+        self.model = Agent.create_model()
+        self.action_delta = 0.2
+        self.memory_data = []
+        self.memory_label = []
 
-    def create_model():
-        model = Sequential()
-        model.add(Dense(output_dim=120, activation='relu'))
-        model.add(Dropout(0.15))
-        model.add(Dense(output_dim=120, activation='relu'))
-        model.add(Dropout(0.15))
-        model.add(Dense(output_dim=120, activation='relu'))
-        model.add(Dropout(0.15))
-        model.add(Dense(output_dim=4, activation='softmax'))
-        opt = Adam()
-        model.compile(loss='mse', optimizer=opt)
-        return model
+    # def create_model():
+    #     model = Sequential()
+    #     model.add(Dense(output_dim=120, activation='relu'))
+    #     model.add(Dropout(0.15))
+    #     model.add(Dense(output_dim=120, activation='relu'))
+    #     model.add(Dropout(0.15))
+    #     model.add(Dense(output_dim=120, activation='relu'))
+    #     model.add(Dropout(0.15))
+    #     model.add(Dense(output_dim=4, activation='softmax'))
+    #     opt = Adam()
+    #     model.compile(loss='mse', optimizer=opt)
+    #     return model
 
     def create_model():
         model = Sequential()
@@ -118,30 +131,44 @@ class Agent:
         model.compile(loss='mse', optimizer=opt)
         return model
 
-    def __calc_reward(self, state_old, state_new):
-        if not state_old.gameover and state_new.gameover:
-            return -100
+    def train(self):
+        x = np.array(self.memory_data)
+        y = np.array(self.memory_label)
+        self.model.fit(x, y, epochs=1, verbose=0)
 
-        if state_old.score < state_new.score:
-            return 10
+    def untrain(self):
+        # label = self.memory_label[-1]
+        # self.memory_label[-1][0] = (label[0] + 1) % 2
+        self.memory_label[-1] = -self.memory_label[-1]
 
-        reward = 0
+        x = np.array(self.memory_data)
+        y = np.array(self.memory_label)
+        self.model.fit(x, y, epochs=1, verbose=0)
 
-        if state_new.distance_to_feed < state_old.distance_to_feed:
-            reward += 0.1
+    def collect_memory_fragment(self, game, action):
+        game_data = [[0 for i in range(game.size)] for j in range(game.size)]
+        game_data[game.position.x][game.position.y] = 1
+        game_data[game.food.x][game.food.y] = 2
+        game_data = np.array(game_data).reshape((1, game.size * game.size))
 
-        if state_new.distance_to_feed > state_old.distance_to_feed:
-            reward -= 0.1
+        # action_data = to_categorical(list(Direction).index(action), len(Direction)).reshape((1, len(Direction)))
+        # result = np.c_[game_data, action_data]
 
-        return reward
+        result = game_data
 
-    def train(self, state_old, state_new, action):
-        target_data = self.model.predict(state_old.data)
-        target_data[0][list(Direction).index(action)] = self.__calc_reward(state_old, state_new)
-        self.model.fit(state_old.data, target_data, epochs=1, verbose=0)
+        return result
 
-    def get_action(self, state):
-        prediction = self.model.predict(state.data)[0]
+    def remember(self, game, action):
+        self.memory_data.append(self.collect_memory_fragment(game, action))
+        self.memory_label.append(
+            to_categorical(list(Direction).index(action), len(Direction)).reshape((1, len(Direction))))
+
+    def forget(self):
+        self.memory_data = []
+        self.memory_label = []
+
+    def get_action(self, game):
+        prediction = self.model.predict(game.get_data())[0][0]
 
         max_prediction = np.amax(prediction)
         delta = max_prediction * self.action_delta
@@ -172,7 +199,7 @@ class State:
             food.y < head.y,
             food.y < head.y,
         ])
-        self.bool_state = 1*self.bool_state.reshape((1, self.bool_state.size))
+        self.bool_state = 1 * self.bool_state.reshape((1, self.bool_state.size))
 
         self.distance_to_feed = (head.x - game.food.x) ** 2 + (head.y - game.food.y) ** 2
 
