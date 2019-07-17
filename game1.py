@@ -23,6 +23,7 @@ class Game1:
         self.rock = None  # TODO
         self.score = 0
         self.step = 0
+        self.last_step = 0
         self.gameover = False
 
     def get_data(self):
@@ -42,10 +43,12 @@ class Game1:
 
     def move(self, offset):
         self.step += 1
+        self.last_step += 1
         if self.test_move(offset):
             self.position.move(offset)
             if self.position == self.food:
                 self.score += 1
+                self.last_step = 0
                 self.food = self.init_food(self.position)
         else:
             self.gameover = True
@@ -106,6 +109,7 @@ class Agent:
         self.action_delta = 0.2
         self.memory_data = []
         self.memory_label = []
+        self.frames = []
 
     # def create_model():
     #     model = Sequential()
@@ -179,6 +183,121 @@ class Agent:
         action_index = random.choice(action_candidate_indices)
         action = list(Direction)[action_index]
 
+        return action
+
+
+class SimpleAgent:
+
+    def __init__(self, size):
+        self.size = size
+        self.model = Agent.create_model()
+        self.action_delta = 0.2
+
+    def create_model():
+        model = Sequential()
+        model.add(Dense(output_dim=120, activation='relu'))
+        model.add(Dropout(0.15))
+        model.add(Dense(output_dim=120, activation='relu'))
+        model.add(Dropout(0.15))
+        # model.add(Dense(output_dim=120, activation='relu'))
+        # model.add(Dropout(0.15))
+        model.add(Dense(output_dim=4, activation='softmax'))
+        opt = Adam()
+        model.compile(loss='mse', optimizer=opt)
+        return model
+
+    def calc_reward(self, state_old, state_new):
+        if not state_old.gameover and state_new.gameover:
+            return -100
+
+        if state_old.score < state_new.score:
+            return 10
+
+        reward = 0
+
+        if state_new.distance_to_feed < state_old.distance_to_feed:
+            reward += 0.1
+
+        if state_new.distance_to_feed > state_old.distance_to_feed:
+            reward -= 0.1
+
+        return reward
+
+    def train(self):
+        x = np.array(self.memory_data)
+        y = np.array(self.memory_label)
+        self.model.fit(x, y, epochs=1, verbose=0)
+
+    def get_action(self, game):
+        prediction = self.model.predict(game.get_data())[0][0]
+
+        max_prediction = np.amax(prediction)
+        delta = max_prediction * self.action_delta
+        prediction_from = max_prediction - delta
+        prediction_to = max_prediction + delta
+
+        action_candidate_indices = np.where((prediction > prediction_from) & (prediction < prediction_to))[0]
+        action_index = random.choice(action_candidate_indices)
+        action = list(Direction)[action_index]
+
+        return action
+
+
+class QAgent:
+
+    def __init__(self, size):
+        self.size = size
+        self.model = Agent.create_model()
+        self.action_delta = 0.2
+        self.frames = []
+
+    # Модель предсказывает награду по входу (state, action)
+    def create_cumulative_reward_model():
+        model = Sequential()
+        model.add(Dense(output_dim=120, activation='relu'))
+        model.add(Dropout(0.15))
+        model.add(Dense(output_dim=120, activation='relu'))
+        model.add(Dropout(0.15))
+        model.add(Dense(output_dim=4, activation='softmax')) # TODO точно не софтмакс. мне нужно предсказывать конкретное значение награды
+        opt = Adam()
+        model.compile(loss='mse', optimizer=opt)
+        return model
+
+    def calc_reward(self, state_old, state_new):
+        if not state_old.gameover and state_new.gameover:
+            return -100
+
+        if state_old.score < state_new.score:
+            return 10
+
+        reward = 0
+
+        if state_new.distance_to_feed < state_old.distance_to_feed:
+            reward += 0.1
+
+        if state_new.distance_to_feed > state_old.distance_to_feed:
+            reward -= 0.1
+
+        return reward
+
+    def remember(self, state_old, state_new, action, reward):
+        self.frames.append((state_old, state_new, action, reward))
+
+    def forget(self):
+        self.frames = []
+
+    def train(self, state_old, state_new, action, reward):
+        x = np.array(self.memory_data)
+        y = np.array(self.memory_label)
+        self.model.fit(x, y, epochs=1, verbose=0)
+
+    def get_action(self, current_state):
+        action_reward_dict = {}
+        for action in list(Direction):
+            reward = self.model.predict(current_state, action)[0]
+            action_reward_dict[action] = reward
+        # action_candidates = max(action_reward_dict) with delta
+        return random.choice(action_candidates)
         return action
 
 

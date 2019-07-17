@@ -9,7 +9,7 @@ def main_game(q):
     from game1 import Renderer
     from game1 import Game1
 
-    TICK_RATE = 50
+    TICK_RATE = 100
     WIDTH = 800
     HEIGHT = 800
     SIZE = 4
@@ -64,8 +64,8 @@ def main_game(q):
             action = agent.get_action(game)
             game.move(action.offset)
             agent.remember(game, action)
-            if game.score > max_score or game.score == max_score and game.step < max_step:
+            if game.score >= max_score or (game.score == max_score and game.step < max_step):
                 agent.train()
 
-            # if game.step > 0 and (game.score / game.step < 0.001):
-            #     game.gameover = True
+            if game.last_step > game.size*game.size:
+                game.gameover = True
