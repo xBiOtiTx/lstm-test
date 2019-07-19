@@ -1,4 +1,4 @@
-from game1 import Agent
+from game1 import Agent, Transition, QAgent
 
 
 def main_game(q):
@@ -9,7 +9,7 @@ def main_game(q):
     from game1 import Renderer
     from game1 import Game1
 
-    TICK_RATE = 100
+    TICK_RATE = 50
     WIDTH = 800
     HEIGHT = 800
     SIZE = 4
@@ -17,11 +17,9 @@ def main_game(q):
     pygame.init()
     surface = pygame.display.set_mode((WIDTH, HEIGHT))
     game = Game1(SIZE)
-    agent = Agent(SIZE)
+    agent = QAgent()
     renderer = Renderer(surface, (SIZE, SIZE))
     game_counter = 0
-    max_score = 0
-    max_step = 0
 
     timer = pygame.time.get_ticks()
     while True:
@@ -53,19 +51,19 @@ def main_game(q):
             q.put([game_counter, game.score])
             game_counter += 1
             game = Game1(SIZE)
-            agent.untrain()
-            agent.forget()
 
         # TODO -> incapsulate to TimeSomething
         current_time = pygame.time.get_ticks()
         dt = current_time - timer
         if dt >= TICK_RATE:
             timer = current_time
-            action = agent.get_action(game)
-            game.move(action.offset)
-            agent.remember(game, action)
-            if game.score >= max_score or (game.score == max_score and game.step < max_step):
-                agent.train()
 
-            if game.last_step > game.size*game.size:
-                game.gameover = True
+            r1 = game.score
+            s1 = game.get_state()
+            a = agent.get_action(s1)
+            game.move(a.offset)
+            r2 = game.score
+            s2 = game.get_state()
+            r = (r2 - r1) * 20  # TODO try cumulitive revard with step decrement
+            agent.remember(Transition(s1, s2, a, r))
+            agent.train()

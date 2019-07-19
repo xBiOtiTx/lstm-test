@@ -20,11 +20,19 @@ class Game1:
         self.map = [[0 for i in range(size)] for j in range(size)]
         self.position = Point(size // 2, size // 2)
         self.food = self.init_food(self.position)
-        self.rock = None  # TODO
+        self.rocks = []  # TODO
         self.score = 0
         self.step = 0
         self.last_step = 0
         self.gameover = False
+
+    def get_state(self):
+        state = self.map.copy()
+        state[self.position.x][self.position.y] = 1
+        state[self.food.x][self.food.y] = 2
+        for r in self.rocks:
+            state[r.x][r.y] = 3
+        return np.rot90(np.array(state)).reshape((1, self.size * self.size))
 
     def get_data(self):
         data = [[0 for i in range(self.size)] for j in range(self.size)]
@@ -50,6 +58,7 @@ class Game1:
                 self.score += 1
                 self.last_step = 0
                 self.food = self.init_food(self.position)
+                # TODO add rock each N step
         else:
             self.gameover = True
         return not self.gameover
@@ -245,60 +254,49 @@ class SimpleAgent:
 
 class QAgent:
 
-    def __init__(self, size):
-        self.size = size
-        self.model = Agent.create_model()
-        self.action_delta = 0.2
-        self.frames = []
+    def __init__(self):
+        self.model = QAgent.create_q_model()
+        self.transitions = []
 
     # Модель предсказывает награду по входу (state, action)
-    def create_cumulative_reward_model():
+    def create_q_model():
         model = Sequential()
-        model.add(Dense(output_dim=120, activation='relu'))
+        model.add(Dense(240, activation='relu'))
         model.add(Dropout(0.15))
-        model.add(Dense(output_dim=120, activation='relu'))
+        model.add(Dense(240, activation='relu'))
         model.add(Dropout(0.15))
-        model.add(Dense(output_dim=4, activation='softmax')) # TODO точно не софтмакс. мне нужно предсказывать конкретное значение награды
-        opt = Adam()
-        model.compile(loss='mse', optimizer=opt)
+        model.add(Dense(4))
+        model.compile(loss='mse', optimizer=Adam())
         return model
 
-    def calc_reward(self, state_old, state_new):
-        if not state_old.gameover and state_new.gameover:
-            return -100
-
-        if state_old.score < state_new.score:
-            return 10
-
-        reward = 0
-
-        if state_new.distance_to_feed < state_old.distance_to_feed:
-            reward += 0.1
-
-        if state_new.distance_to_feed > state_old.distance_to_feed:
-            reward -= 0.1
-
-        return reward
-
-    def remember(self, state_old, state_new, action, reward):
-        self.frames.append((state_old, state_new, action, reward))
+    def remember(self, transition):
+        self.transitions.append(transition)
 
     def forget(self):
-        self.frames = []
+        self.transitions = []
 
-    def train(self, state_old, state_new, action, reward):
-        x = np.array(self.memory_data)
-        y = np.array(self.memory_label)
-        self.model.fit(x, y, epochs=1, verbose=0)
+    def train(self):
+        batch_size = min(len(self.transitions), 10)
+        transitions_batch = random.sample(self.transitions, batch_size)
+        for t in transitions_batch:
+            x = t.s1
+            y = t.r + 0.77 * self.model.predict(t.s2)[0]  # 0.77 - gamma - коэффициент скорости(мощности) запоминания
+            y[list(Direction).index(t.a)] = t.r
+            y = y.reshape(1, len(Direction))
+            self.model.fit(x, y, epochs=1, verbose=0)
 
-    def get_action(self, current_state):
-        action_reward_dict = {}
-        for action in list(Direction):
-            reward = self.model.predict(current_state, action)[0]
-            action_reward_dict[action] = reward
-        # action_candidates = max(action_reward_dict) with delta
-        return random.choice(action_candidates)
+    def get_action(self, state):
+        prediction = self.model.predict(state)[0]
+        action = list(Direction)[prediction.argmax()]
         return action
+
+
+class Transition:
+    def __init__(self, s1, s2, a, r):
+        self.s1 = s1
+        self.s2 = s2
+        self.a = a
+        self.r = r
 
 
 class State:
