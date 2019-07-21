@@ -1,7 +1,8 @@
 import pygame
 import random
+import pickle
 
-from keras.layers import LSTM, TimeDistributed
+from keras.layers import LSTM, TimeDistributed, Conv2D, Flatten
 from keras.optimizers import Adam
 from keras.models import Sequential
 from keras.layers.core import Dense, Dropout
@@ -32,7 +33,7 @@ class Game1:
         state[self.food.x][self.food.y] = 2
         for r in self.rocks:
             state[r.x][r.y] = 3
-        return np.rot90(np.array(state)).reshape((1, self.size * self.size))
+        return tuple(np.rot90(np.array(state)).reshape((self.size * self.size)))
 
     def get_data(self):
         data = [[0 for i in range(self.size)] for j in range(self.size)]
@@ -254,39 +255,72 @@ class SimpleAgent:
 
 class QAgent:
 
-    def __init__(self):
-        self.model = QAgent.create_q_model()
-        self.transitions = []
+    def __init__(self, size):
+        self.size = size
+        self.model = self.create_q_model()
+        self.transitions = set()
 
     # Модель предсказывает награду по входу (state, action)
-    def create_q_model():
+    def create_q_model(self):
         model = Sequential()
-        model.add(Dense(240, activation='relu'))
-        model.add(Dropout(0.15))
-        model.add(Dense(240, activation='relu'))
-        model.add(Dropout(0.15))
-        model.add(Dense(4))
+        # model.add(
+        #     Conv2D(32, (1, 1), padding="same", activation="relu",
+        #            input_shape=(1, 1, self.size * self.size)))
+        # model.add(Dense(4, activation='relu'))
+        # model.add(Dense(16, activation='relu'))
+        # model.add(Dense(64, activation='relu'))
+        model.add(Dense(256, activation='relu'))
+        model.add(Dense(128, activation='relu'))
+        # model.add(Dense(64, activation='relu'))
+        # model.add(Dense(16, activation='relu'))
+        # model.add(Dense(128, activation='relu'))
+        # model.add(Dropout(0.15))
+        # model.add(Dense(128, activation='relu'))
+        # model.add(Dropout(0.15))
+        model.add(Dense(4))  # linear activation
         model.compile(loss='mse', optimizer=Adam())
         return model
 
     def remember(self, transition):
-        self.transitions.append(transition)
+        self.transitions.add(transition)
+        print(len(self.transitions))
+        # with open('transitions{}x{}.pkl'.format(self.size, self.size), 'wb') as output:
+        #     pickle.dump(self.transitions, output, pickle.HIGHEST_PROTOCOL)
 
     def forget(self):
-        self.transitions = []
+        self.transitions = set()
+
+    # def train(self):
+    #     batch_size = min(len(self.transitions), 25)
+    #     transitions_batch = random.sample(self.transitions, batch_size)
+    #     for t in transitions_batch:
+    #         x = np.array([t.s1])
+    #         y = t.r + 0.77 * self.model.predict(np.array([t.s2]))[0]
+    # 0.77 - gamma - коэффициент скорости(мощности) запоминания
+    #         # y = t.r + self.model.predict(np.array([t.s2]))[0]
+    #         # y = 0 * self.model.predict(np.array([t.s2]))[0]
+    #         y[list(Direction).index(t.a)] = t.r
+    #         y = y.reshape(1, len(Direction))
+    #         # print((x,y))
+    #         self.model.fit(x, y, epochs=1, verbose=0)
 
     def train(self):
-        batch_size = min(len(self.transitions), 10)
+        batch_size = min(len(self.transitions), 32)
         transitions_batch = random.sample(self.transitions, batch_size)
+
+        x_batch = []
+        y_batch = []
         for t in transitions_batch:
-            x = t.s1
-            y = t.r + 0.77 * self.model.predict(t.s2)[0]  # 0.77 - gamma - коэффициент скорости(мощности) запоминания
-            y[list(Direction).index(t.a)] = t.r
-            y = y.reshape(1, len(Direction))
-            self.model.fit(x, y, epochs=1, verbose=0)
+            x_batch.append(t.s1)
+            y = self.model.predict(np.array([t.s1]))[0]
+            y[list(Direction).index(t.a)] = t.r + 0.9 * (self.model.predict(np.array([t.s2]))[0]).max()
+            y_batch.append(y)
+
+        self.model.fit(np.array(x_batch), np.array(y_batch), epochs=10, verbose=0, batch_size=batch_size)
 
     def get_action(self, state):
-        prediction = self.model.predict(state)[0]
+        prediction = self.model.predict(np.array([state]))[0]
+        print(prediction.astype(int))
         action = list(Direction)[prediction.argmax()]
         return action
 
@@ -298,9 +332,29 @@ class Transition:
         self.a = a
         self.r = r
 
+    def __eq__(self, other):
+        return self.s1 == other.s1 \
+               and self.s2 == other.s2 \
+               and self.a == other.a \
+               and self.r == other.r
+
+    def __ne__(self, other):
+        return self.s1 != other.s1 \
+               or self.s2 != other.s2 \
+               or self.a != other.a \
+               or self.r != other.r
+
+    def __hash__(self):
+        return self.s1.__hash__() + self.s2.__hash__() + self.a.__hash__() + self.r.__hash__()
+
+    def __str__(self):
+        return (self.s1, self.s2, self.a, self.r).__str__()
+
+    def __repr__(self):
+        return self.__str__()
+
 
 class State:
-
     def __init__(self, game):
         snake = game.snake
         head = game.snake.segments[0]
