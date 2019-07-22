@@ -269,8 +269,12 @@ class QAgent:
         # model.add(Dense(4, activation='relu'))
         # model.add(Dense(16, activation='relu'))
         # model.add(Dense(64, activation='relu'))
-        model.add(Dense(256, activation='relu'))
-        model.add(Dense(128, activation='relu'))
+        model.add(Dense(512, activation='relu'))
+        model.add(Dense(512, activation='relu'))
+        model.add(Dense(512, activation='relu'))
+        # model.add(Dense(256, activation='relu'))
+        # model.add(Dense(256, activation='relu'))
+        # model.add(Dense(128, activation='relu'))
         # model.add(Dense(64, activation='relu'))
         # model.add(Dense(16, activation='relu'))
         # model.add(Dense(128, activation='relu'))
@@ -283,7 +287,7 @@ class QAgent:
 
     def remember(self, transition):
         self.transitions.add(transition)
-        print(len(self.transitions))
+        # print(len(self.transitions))
         # with open('transitions{}x{}.pkl'.format(self.size, self.size), 'wb') as output:
         #     pickle.dump(self.transitions, output, pickle.HIGHEST_PROTOCOL)
 
@@ -313,10 +317,11 @@ class QAgent:
         for t in transitions_batch:
             x_batch.append(t.s1)
             y = self.model.predict(np.array([t.s1]))[0]
-            y[list(Direction).index(t.a)] = t.r + 0.9 * (self.model.predict(np.array([t.s2]))[0]).max()
+            gamma = 0.95
+            y[list(Direction).index(t.a)] = t.r + gamma * (self.model.predict(np.array([t.s2]))[0]).max()
             y_batch.append(y)
 
-        self.model.fit(np.array(x_batch), np.array(y_batch), epochs=10, verbose=0, batch_size=batch_size)
+        self.model.fit(np.array(x_batch), np.array(y_batch), epochs=1, verbose=0, batch_size=batch_size)
 
     def get_action(self, state):
         prediction = self.model.predict(np.array([state]))[0]
