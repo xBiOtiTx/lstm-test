@@ -10,14 +10,14 @@ if __name__ == "__main__":
 
     queue = Queue()
 
-    # p1 = Process(target=main_game, args=[queue])
-    # p1.start()
-
-    p1 = Process(target=main_game_sim, args=[queue])
+    p1 = Process(target=main_game, args=[queue])
     p1.start()
 
-    p2 = Process(target=main_monitor, args=[queue])
-    p2.start()
+    # p1 = Process(target=main_game_sim, args=[queue])
+    # p1.start()
+
+    # p2 = Process(target=main_monitor, args=[queue])
+    # p2.start()
 
     p1.join()
-    p2.join()
+    # p2.join()

@@ -1,6 +1,8 @@
 import pygame
 import random
 import pickle
+import copy
+
 
 from keras.layers import LSTM, TimeDistributed, Conv2D, Flatten
 from keras.optimizers import Adam
@@ -11,24 +13,29 @@ import numpy as np
 from keras.utils import to_categorical
 
 from utils import Direction
+from utils import Point
 
 
 class Game1:
     def __init__(self, size):
-        from utils import Point
         self.size = size
         self.all_positions = [Point(i, j) for i in range(size) for j in range(size)]
-        self.map = [[0 for i in range(size)] for j in range(size)]
+        # self.map = [[0 for i in range(size)] for j in range(size)]
         self.position = Point(size // 2, size // 2)
         self.food = self.init_food(self.position)
         self.rocks = []  # TODO
         self.score = 0
         self.step = 0
         self.last_step = 0
-        self.gameover = False
+        self.game_over = False
+
+    def init(self, head, food):
+        self.position = head.copy()
+        self.food = food.copy()
+        self.game_over = False
 
     def get_state(self):
-        state = self.map.copy()
+        state = [[0 for i in range(self.size)] for j in range(self.size)]
         state[self.position.x][self.position.y] = 1
         state[self.food.x][self.food.y] = 2
         for r in self.rocks:
@@ -42,13 +49,18 @@ class Game1:
         return np.rot90(np.array(data)).reshape((1, 1, self.size * self.size))
 
     def init_food(self, position):
-        food_test = self.all_positions.copy()
+        food_test = [Point(i, j) for i in range(self.size) for j in range(self.size)]
         food_test.remove(position)
         return random.choice(food_test)
 
-    # TODO
-    # def restart(self):
-    #     pass
+    def restart(self):
+        self.position = Point(self.size // 2, self.size // 2)
+        self.food = self.init_food(self.position)
+        self.rocks = []  # TODO
+        self.score = 0
+        self.step = 0
+        self.last_step = 0
+        self.game_over = False
 
     def move(self, offset):
         self.step += 1
@@ -61,8 +73,8 @@ class Game1:
                 self.food = self.init_food(self.position)
                 # TODO add rock each N step
         else:
-            self.gameover = True
-        return not self.gameover
+            self.game_over = True
+        return not self.game_over
 
     def test_move(self, offset):
         t = self.position.copy()
@@ -270,8 +282,8 @@ class QAgent:
         # model.add(Dense(16, activation='relu'))
         # model.add(Dense(64, activation='relu'))
         model.add(Dense(512, activation='relu'))
-        model.add(Dense(512, activation='relu'))
-        model.add(Dense(512, activation='relu'))
+        # model.add(Dense(512, activation='relu'))
+        # model.add(Dense(512, activation='relu'))
         # model.add(Dense(256, activation='relu'))
         # model.add(Dense(256, activation='relu'))
         # model.add(Dense(128, activation='relu'))
@@ -317,15 +329,39 @@ class QAgent:
         for t in transitions_batch:
             x_batch.append(t.s1)
             y = self.model.predict(np.array([t.s1]))[0]
-            gamma = 0.95
+            gamma = 0.9
             y[list(Direction).index(t.a)] = t.r + gamma * (self.model.predict(np.array([t.s2]))[0]).max()
             y_batch.append(y)
 
         self.model.fit(np.array(x_batch), np.array(y_batch), epochs=1, verbose=0, batch_size=batch_size)
 
+    def train2(self, transition):
+        x = np.array(transition.s1)
+        y = self.model.predict(np.array([transition.s1]))[0]
+        gamma = 0.9
+        target_r = transition.r + gamma * (self.model.predict(np.array([transition.s2]))[0]).max()
+        y[list(Direction).index(transition.a)] = target_r
+
+        print("r: " + str(transition.r))
+        print("target_r: " + str(target_r))
+        # print("x: " + str(x))
+        # print("x shape: " + str(x.shape))
+        # print("y: " + str(y))
+        # print("y shape: " + str(y.shape))
+
+        self.model.fit(np.array([x]), np.array([y]), epochs=1, verbose=0)
+
+
     def get_action(self, state):
         prediction = self.model.predict(np.array([state]))[0]
-        print(prediction.astype(int))
+        # print(prediction.astype(int))
+        p = np.zeros((3, 3))
+        p[0, 1] = prediction[1]
+        p[1, 0] = prediction[0]
+        p[1, 2] = prediction[2]
+        p[2, 1] = prediction[3]
+        # print(p.astype(int))
+        print(p)
         action = list(Direction)[prediction.argmax()]
         return action
 

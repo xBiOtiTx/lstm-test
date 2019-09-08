@@ -8,7 +8,7 @@ def main_game_sim(q):
     import pickle
     from game1 import Game1
 
-    SIZE = 7
+    SIZE = 2
     GAME_COUNT_MAX = 1000
     TRAIN_COUNT_MAX = 1000
 
@@ -68,11 +68,11 @@ def main_game_sim(q):
         if d2 < d1:
             r = 0.25
 
-        if game.gameover:
+        if game.game_over:
             r = -1
         agent.remember(Transition(s1, s2, a, r))
 
-        if game.gameover:
+        if game.game_over:
             q.put([game_counter, game.score])
             game_counter += 1
             total_score += game.score
