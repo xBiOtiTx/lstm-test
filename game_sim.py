@@ -1,6 +1,50 @@
 from game1 import Agent, Transition, QAgent
 
 
+def main_game_sim2(q):
+    import random
+    from utils import Direction
+    import numpy as np
+    import pickle
+    from game1 import Game1
+
+    SIZE = 20
+    GAME_COUNT_MAX = 1000
+
+    game = Game1(SIZE)
+    agent = QAgent(SIZE, 1, 4048)
+    game_counter = 0
+
+    while game_counter < GAME_COUNT_MAX:
+        r1 = game.score
+        s1 = game.get_state()
+
+        if random.random() > 1/(GAME_COUNT_MAX - game_counter):
+            a = random.choice(list(Direction))
+        else:
+            a = agent.get_action(s1)
+
+        game.move(a.offset)
+
+        r2 = game.score
+        s2 = game.get_state()
+        r = (r2 - r1) * 1
+        if game.game_over:
+            r = -1
+        print("Game: {}, step {}, score {}, transitions {}".format(game_counter, game.step, game.score, len(agent.transitions)))
+
+        agent.remember(Transition(s1, s2, a, r))
+
+        if game.game_over:
+            game_counter += 1
+            print("Game: {} of {} is over".format(game_counter, GAME_COUNT_MAX))
+            agent.train()
+            game = Game1(SIZE)
+
+            with open('transitions{}x{}.pkl'.format(SIZE, SIZE), 'wb') as output:
+                pickle.dump(agent.transitions, output, pickle.HIGHEST_PROTOCOL)
+
+
 def main_game_sim(q):
     import random
     from utils import Direction
@@ -79,5 +123,3 @@ def main_game_sim(q):
             print("Game: {} of {} is over".format(game_counter, GAME_COUNT_MAX))
             agent.train()
             game = Game1(SIZE)
-
-    print("Average score: {}".format(total_score / game_counter))

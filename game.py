@@ -1,7 +1,6 @@
 from engine.KeyStepEngine import KeyStepEngine
 from game1 import Agent, Transition, QAgent
 import pygame
-import copy
 from utils import Direction, Point
 from game1 import Renderer
 from game1 import Game1
@@ -11,7 +10,10 @@ class KeyStepEngineHandler:
     def __init__(self, agent):
         self.agent = agent
 
-    def on_step(self, game, engine, key):
+    def operate(self, game, engine):
+        pass
+
+    def on_key(self, game, engine, key):
         a = None
         if key == pygame.K_LEFT:
             a = Direction.LEFT
@@ -23,57 +25,49 @@ class KeyStepEngineHandler:
             a = Direction.DOWN
 
         if a is not None:
-            r1 = game.score
-            s1 = game.get_state()
-
-            a = self.agent.get_action(s1)
-
             game.move(a.offset)
-
-            r2 = game.score
-            s2 = game.get_state()
-
-            k_positive = 1  # Коэффициент положительного подкрепления
-            k_negative = 10  # Коэффициент отрицательного подкрепления
-
-            r = (r2 - r1) * k_positive + 1
-            if game.game_over:
-                r = -1 * k_negative
-
-            t = Transition(s1, s2, a, r)
-
             print("score: " + str(game.score))
-
-            # self.agent.remember(t)
-            # self.agent.train()
-            # self.agent.train2(t)
 
     def on_game_over(self, game, engine):
         game.restart()
 
 
-class Operator:
-    def __init__(self, agent):
+class AgentHandler:
+    def __init__(self, agent, train=False):
         self.agent = agent
+        self.train = train
 
-    def get_action(self):
+    def operate(self, game, engine):
+        r1 = game.score
+        s1 = game.get_state()
+
+        a = self.agent.get_action(s1)
+
+        game.move(a.offset)
+
+        r2 = game.score
+        s2 = game.get_state()
+
+        k_positive = 1  # Коэффициент положительного подкрепления
+        k_negative = 1  # Коэффициент отрицательного подкрепления
+
+        r = (r2 - r1) * k_positive
+        if game.game_over:
+            r = -1 * k_negative
+
+        t = Transition(s1, s2, a, r)
+
+        print("score: " + str(game.score))
+
+        if self.train:
+            self.agent.remember(t)
+            self.agent.train()
+
+    def on_key(self, game, engine, key):
         pass
 
-
-class AgentOperator:
-    def __init__(self, agent):
-        self.agent = agent
-
-    def get_action(self):
-        pass
-
-
-class HumanOperator:
-    def __init__(self):
-        self.stub = "stub"
-
-    def get_action(self):
-        pass
+    def on_game_over(self, game, engine):
+        game.restart()
 
 
 def generate_transitions(size):
@@ -101,25 +95,87 @@ def generate_transitions(size):
     return transitions
 
 
+class GameSimulator:
+    def run(self):
+        for size in range(10, 20):
+            self.inner_success(size)
+
+    # def inner_success(self, size):
+    #     transitions = generate_transitions(size)
+    #
+    #     for layers in range(1, 10):
+    #         for units in range(4, 10, 8):
+    #             for trains in range(500, 10000, 500):
+    #                 agent = QAgent(size, layers, 2**units)
+    #                 for t in transitions:
+    #                     agent.remember(t)
+    #                 for i in range(trains):
+    #                     agent.train()
+    #
+    #                 if self.success(size, agent):
+    #                     print((size, layers, 2**units, trains, "SUCCESS"))
+    #                     return
+    #                 else:
+    #                     print((size, layers, 2**units, trains, "FAIL"))
+
+    def inner_success(self, size):
+        transitions = generate_transitions(size)
+        trains = 10000
+
+        for layers in range(1, 5):
+            for units in range(9, 13):
+                agent = QAgent(size, layers, 2**units)
+                for t in transitions:
+                    agent.remember(t)
+                for i in range(trains):
+                    agent.train()
+
+                if self.success(size, agent):
+                    print((size, layers, 2**units, trains, "SUCCESS"))
+                    return
+                else:
+                    print((size, layers, 2**units, trains, "FAIL"))
+
+    def success(self, size, agent):
+        attempts = 10
+        wrong_route = size * size * 2
+        target_score = 50
+        game = Game1(size)
+        max_score = 0
+        for attempt in range(attempts):
+            while not game.game_over:
+                a = agent.get_action(game.get_state())
+                game.move(a.offset)
+                max_score = max(max_score, game.score)
+                if game.last_step >= wrong_route:
+                    break
+                if game.score >= target_score:
+                    return True
+            game.restart()
+        return False
+
+
 def main_game(q):
-    WIDTH = 800
-    HEIGHT = 800
-    SIZE = 4
-
-    pygame.init()
-    surface = pygame.display.set_mode((WIDTH, HEIGHT))
-    renderer = Renderer(surface, (SIZE, SIZE))
-    game = Game1(SIZE)
-    agent = QAgent(SIZE)
-    handler = KeyStepEngineHandler(agent)
-
-    transitions = generate_transitions(SIZE)
-    for t in transitions:
-        agent.remember(t)
-
-    for i in range(2000):
-        print(i)
-        agent.train()
-
-    engine = KeyStepEngine(game, handler, renderer)
-    engine.run()
+    g = GameSimulator()
+    g.run()
+    # WIDTH = 800
+    # HEIGHT = 800
+    # SIZE = 5
+    #
+    # pygame.init()
+    # surface = pygame.display.set_mode((WIDTH, HEIGHT))
+    # renderer = Renderer(surface, (SIZE, SIZE))
+    # game = Game1(SIZE)
+    # agent = QAgent(SIZE)
+    # handler = AgentHandler(agent)
+    #
+    # transitions = generate_transitions(SIZE)
+    # for t in transitions:
+    #     agent.remember(t)
+    #
+    # for i in range(3000):
+    #     print(i)
+    #     agent.train()
+    #
+    # engine = KeyStepEngine(game, handler, renderer)
+    # engine.run()

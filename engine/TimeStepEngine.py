@@ -2,22 +2,35 @@ import pygame
 from pygame.constants import QUIT
 
 
+class TimeHandler:
+    def __init__(self):
+        pass
+
+    def register(self):
+        pass
+
+    def unregister(self):
+        pass
+
+
 class TimeStepEngine:
     def __init__(self, game, handler, renderer):
         self.game = game
         self.handler = handler
         self.renderer = renderer
-        self.step_rate = 1000
+        # self.actions_per_step = 10
+        self.steps_per_second = 1
+        self.step_rate = 1000 / self.steps_per_second
 
     def run(self):
         old_time = pygame.time.get_ticks()
         while True:
             self.renderer.render(self.game)
             self.handle_input_event()
-
+            # self.operator.act(self.game)
             if self.game.game_over:
                 self.handler.on_game_over()
-
+            # else
             current_time = pygame.time.get_ticks()
             dt = current_time - old_time
             if dt >= self.step_rate:
